@@ -19,8 +19,9 @@ int main(int argc, char *argv[])
     int p;       /* number of process */
     int source;  /* rank of sender */
     int dest;    /* rank of reciever */
-    int x, y, r, lb, ub, sum = 0;
+    int x, y, r, lb, modu, ub, range, sum = 0;
     int cnt = 0;
+
     /* storage for  */
 
     /* recieve */
@@ -35,11 +36,9 @@ int main(int argc, char *argv[])
     if (my_rank != 0)
     {
         dest = 0;
-        MPI_Recv(&x, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&r, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        lb = (my_rank - 1) * r;
-        ub = my_rank * r;
-        for (int i = lb; i < ub; i++)
+        MPI_Recv(&lb, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&ub, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        for (int i = lb; i <= ub; i++)
             if (isPrime(i))
                 cnt++;
         MPI_Send(&cnt, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
@@ -48,24 +47,36 @@ int main(int argc, char *argv[])
     {
         scanf("%d", &x);
         scanf("%d", &y);
-        r = (y - x) / (p-1);
-        for (source = 1; source < p; source++)
+        if (p == 1)
         {
-            MPI_Send(&x, 1, MPI_INT, source, 0, MPI_COMM_WORLD);
-            MPI_Send(&r, 1, MPI_INT, source, 0, MPI_COMM_WORLD);
+            for (int i = x; i <= y; i++)
+            {
+                if (isPrime(i))
+                    cnt++;
+            }
+            printf("Total number of prime number in Master Process: %d\n", cnt);
+            return 0;
         }
+        r = (y - x + 1) / (p - 1);
+        modu = (y - x + 1) % (p - 1);
+        lb = x;
         for (source = 1; source < p; source++)
         {
+            range = r;
+            MPI_Send(&lb, 1, MPI_INT, source, 0, MPI_COMM_WORLD);
+            if (source > (p - 1) - modu)
+                range++;
+            ub = lb + range - 1;
+            MPI_Send(&ub, 1, MPI_INT, source, 0, MPI_COMM_WORLD);
+            lb = ub + 1;
             MPI_Recv(&cnt, 1, MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             primes[source - 1] = cnt;
-        }
-        for (source = 1; source < p; source++)
             sum += primes[source - 1];
-        
+        }
+
         printf("Total number of prime numbers is: %d\n", sum);
         for (source = 1; source < p; source++)
             printf("Total number of prime number in P%d: %d\n", source, primes[source - 1]);
-        
     }
     /* shutdown MPI */
     MPI_Finalize();
