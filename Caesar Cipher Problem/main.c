@@ -3,6 +3,19 @@
 #include <stdlib.h>
 #include "mpi.h"
 
+void writeToFile(char message[]){
+    FILE *file;
+
+    // Open a file in writing mode
+    file = fopen("input.txt", "w");
+
+    // Write some text to the file
+    fprintf(file, "%s", message);
+
+    // Close the file
+    fclose(file);
+}
+
 char *createSubArray(char original[], int size)
 {
     char *subArray = (char *)malloc(size * sizeof(char));
@@ -55,8 +68,8 @@ void encrypt(char message[])
     size_t length = strlen(message);
     for (int i = 0; i < length; i++)
     {
-        // printf("%c ", message[i]);
-        message[i] = message[i] + 3;
+        if(message[i] != '\n')
+            message[i] = message[i] + 3;
     }
 }
 
@@ -65,7 +78,8 @@ void decrypt(char message[])
     size_t length = strlen(message);
     for (int i = 0; i < length; i++)
     {
-        message[i] = message[i] - 3;
+        if(message[i] != '\n')
+            message[i] = message[i] - 3;
     }
 }
 
@@ -73,13 +87,9 @@ int main(int argc, char *argv[])
 {
     int procesRank;    /* rank of process */
     int p;             /* number of process */
-    int src;           /* rank of sender */
-    int dest;          /* rank of reciever */
-    int tag = 0;       /* tag for messages */
     char message[500]; /* storage for message */
     MPI_Status status; /* return status for recieve */
     int mode, algo;
-    int limit;
 
     /* Start up MPI */
     MPI_Init(&argc, &argv);
@@ -122,33 +132,54 @@ int main(int argc, char *argv[])
         {
             readFromFile(message);
         }
-
-        // divide the array into equal portions
-        int totalLength = strlen(message);
-        if(message[totalLength] == '\n') totalLength--;
-        int sz = totalLength / (p - 1);
-        int i = 0;
-        // limit = p < totalLength ? p : totalLength;
-
-        for (int destnation = 1; destnation < p; destnation++)
+        if (p == 1)
         {
-            char *subArr = createSubArray(message + (sz * i), sz);
-            MPI_Send(&algo, 1, MPI_INT, destnation, 0, MPI_COMM_WORLD);
-            MPI_Send(&sz, 1, MPI_INT, destnation, 0, MPI_COMM_WORLD);
-            MPI_Send(subArr, sz, MPI_CHAR, destnation, 0, MPI_COMM_WORLD);
-            i++;
+            int totalLength = strlen(message);
+            if (message[totalLength] == '\n')
+                message[totalLength] = '\0';
+            if (algo == 1)
+            {
+                encrypt(message);
+            }
+            else
+            {
+                decrypt(message);
+            }
+            printf("From master process the result is:\n%s \n\n", message);
         }
-
-        char result[500];
-        char temp[500];
-        for (int source = 1; source < limit; source++)
+        else
         {
-            MPI_Recv(temp, sz, MPI_CHAR, source, 0, MPI_COMM_WORLD, &status);
-            temp[sz] = '\0';
-            strcat(result, temp);
-        }
+            // divide the array into equal portions
+            int totalLength = strlen(message);
+            if (mode == 1)
+                totalLength--;
+            int sz = totalLength / (p - 1);
+            int i = 0;
 
-        printf("From master process the result is: %s \n", result);
+            for (int destnation = 1; destnation < p; destnation++)
+            {
+                char *subArr = createSubArray(message + (sz * i), sz);
+                MPI_Send(&algo, 1, MPI_INT, destnation, 0, MPI_COMM_WORLD);
+                MPI_Send(&sz, 1, MPI_INT, destnation, 0, MPI_COMM_WORLD);
+                MPI_Send(subArr, sz, MPI_CHAR, destnation, 0, MPI_COMM_WORLD);
+                i++;
+            }
+
+            char result[500];
+            char temp[500];
+            for (int source = 1; source < p; source++)
+            {
+                MPI_Recv(temp, sz, MPI_CHAR, source, 0, MPI_COMM_WORLD, &status);
+                temp[sz] = '\0';
+                strcat(result, temp);
+            }
+
+            printf("From master process the result is:\n%s \n\n", result);
+            
+            if(mode == 2){
+                writeToFile(result);
+            }
+        }
     }
     else
     {
