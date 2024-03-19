@@ -128,9 +128,9 @@ int main(int argc, char *argv[])
         if(message[totalLength] == '\n') totalLength--;
         int sz = totalLength / (p - 1);
         int i = 0;
-        limit = p < totalLength ? p : totalLength;
+        // limit = p < totalLength ? p : totalLength;
 
-        for (int destnation = 1; destnation < limit; destnation++)
+        for (int destnation = 1; destnation < p; destnation++)
         {
             char *subArr = createSubArray(message + (sz * i), sz);
             MPI_Send(&algo, 1, MPI_INT, destnation, 0, MPI_COMM_WORLD);
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 
         printf("From master process the result is: %s \n", result);
     }
-    else if(procesRank < limit - 1)
+    else
     {
         int sz;
         MPI_Recv(&algo, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
